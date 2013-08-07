@@ -26,6 +26,13 @@ App::uses('HttpSocket', 'Network/Http');
 class PostmarkTransport extends AbstractTransport {
 
 /**
+ * Postmark API URI
+ *
+ * @var string
+ */
+	public $uri = 'http://api.postmarkapp.com/email';
+
+/**
  * CakeEmail
  *
  * @var CakeEmail
@@ -52,6 +59,26 @@ class PostmarkTransport extends AbstractTransport {
  * @var mixed
  */
 	protected $_config = array();
+  
+/**
+ * Set the configuration
+ *
+ * @param array $config
+ * @return void
+ */
+	public function config($config = array()) {
+	  $default = array(
+			'uri' => $this->uri,
+			'key' => null,
+			'tag' => null,
+		);
+		
+		if (Configure::read('Postmark.key')) {
+		  $default['key'] = Configure::read('Postmark.key');
+		}
+		
+		$this->_config = $config + $default;
+	}
 
 /**
  * Sends out email via Postmark
@@ -62,11 +89,11 @@ class PostmarkTransport extends AbstractTransport {
 		// CakeEmail
 		$this->_cakeEmail = $email;
 
-		$this->_config = $this->_cakeEmail->config();
+		$this->config($this->_cakeEmail->config());
 		$this->_headers = $this->_cakeEmail->getHeaders(array('from', 'to', 'cc', 'bcc', 'replyTo', 'subject'));
 
 		// Setup connection
-		$this->__postmarkConnection = & new HttpSocket();
+		$this->__postmarkConnection = $this->getSocket();
 
 		// Build message
 		$message = $this->__buildMessage();
@@ -76,7 +103,6 @@ class PostmarkTransport extends AbstractTransport {
 
 		// Send message
 		$returnPostmark = $this->__postmarkConnection->post($this->_config['uri'], json_encode($message), $request);
-
 		// Return data
 		$result = json_decode($returnPostmark, true);
 		$headers = $this->_headersToString($this->_headers);
@@ -179,6 +205,15 @@ class PostmarkTransport extends AbstractTransport {
 		);
 
 		return $request;
+	}
+
+/**
+ * Get socket. Allows for better testing
+ *
+ * @return array
+ */
+	public function getSocket() {
+		return new HttpSocket();
 	}
 
 }

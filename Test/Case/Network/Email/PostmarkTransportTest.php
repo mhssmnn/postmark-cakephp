@@ -1,5 +1,25 @@
 <?php
 App::uses('CakeEmail', 'Network/Email');
+App::uses('PostmarkTransport', 'Postmark.Network/Email');
+
+class EmailConfig {
+
+  public $postmark = array(
+  	'transport' => 'TestPostmark',
+  	'emailFormat' => 'both'
+  );
+
+}
+
+class TestPostmarkTransport extends PostmarkTransport {
+	public $socket;
+	public function setSocket($socket) {
+		$this->socket = $socket;
+	}
+	public function getSocket() {
+		return $this->socket;
+	}
+}
 
 /**
  * Test case
@@ -12,7 +32,7 @@ class PostmarkTransportTest extends CakeTestCase {
  *
  * @var CakeEmail
  */
-	private $email;
+	private $Email;
 
 /**
  * Setup
@@ -20,7 +40,7 @@ class PostmarkTransportTest extends CakeTestCase {
  * @return void
  */
 	public function setUp() {
-		$this->email = new CakeEmail();
+		$this->Email = new CakeEmail();
 	}
 
 /**
@@ -29,27 +49,30 @@ class PostmarkTransportTest extends CakeTestCase {
  * @return void
  */
 	public function testPostmarkSend() {
-		$this->email->config('postmark');
-		$this->email->template('default', 'default');
-		$this->email->emailFormat('html');
-		$this->email->from(array('yourpostmark@mail.com' => 'Your Name'));
-		$this->email->to(array('recipient@domain.com' => 'Recipient'));
-		$this->email->cc(array('recipient@domain.com' => 'Recipient'));
-		$this->email->bcc(array('recipient@domain.com' => 'Recipient'));
-		$this->email->subject('Test Postmark');
-		$this->email->addHeaders(array('Tag' => 'my tag'));
-		$this->email->attachments(array(
-		    'cake.icon.png' => array(
-		        'file' => WWW_ROOT . 'img' . DS . 'cake.icon.png'
-			)
-		));
+		$this->Email
+			->config('postmark')
+			->emailFormat('html')
+			->from(array('yourpostmark@mail.com' => 'Your Name'))
+			->to('recipient@domain.com', 'Recipient')
+			->cc(array('recipient@domain.com' => 'Recipient'))
+			->bcc(array('recipient@domain.com' => 'Recipient'))
+			->subject('Test Postmark')
+			->addHeaders(array('Tag' => 'my tag'))
+			->attachments(array('cake.icon.png' => array('file' => WWW_ROOT . 'img' . DS . 'cake.icon.png')));
 
-		$sendReturn =  $this->email->send();
+		$response = '{"ErrorCode": 0, "Message": "OK", "MessageID": "b7bc2f4a-e38e-4336-af7d-e6c392c2f817", "SubmittedAt": "2010-11-26T12:01:05.1794748-05:00", "To": "Recipient <recipient@domain.com>"}';
 
-		$headers = $this->email->getHeaders(array('to'));
-		$this->assertEqual($sendReturn['To'], $headers['To']);
-		$this->assertEqual($sendReturn['ErrorCode'], 0);
-		$this->assertEqual($sendReturn['Message'], 'OK');
+		$mockSocket = $this->getMock('HttpSocket', array('post'), array());
+		$mockSocket->expects($this->once())->method('post')->will($this->returnValue($response));
+
+		$this->Email->transportClass()->setSocket($mockSocket);
+
+		$sendReturn =  $this->Email->send();
+
+		$headers = $this->Email->getHeaders(array('to'));
+		$this->assertEqual($sendReturn['Postmark']['To'], $headers['To']);
+		$this->assertEqual($sendReturn['Postmark']['ErrorCode'], 0);
+		$this->assertEqual($sendReturn['Postmark']['Message'], 'OK');
 	}
 
 }
